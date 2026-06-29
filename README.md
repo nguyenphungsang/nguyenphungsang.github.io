@@ -1,4 +1,4 @@
-# Professional Developer Portfolio - Modern & Interactive CV
+# PSN DevOps Portfolio
 
 A stunning, fully-responsive portfolio website with advanced animations, multi-language support, and code-themed design. Perfect for developers and tech professionals.
 
@@ -6,7 +6,7 @@ A stunning, fully-responsive portfolio website with advanced animations, multi-l
 
 - Modern code-themed design with beautiful gradients
 - Smooth animations powered by Anime.js
-- Multi-language support (English & Arabic) with RTL/LTR
+- Multi-language support (English & Vietnamese)
 - Fully responsive mobile-first design
 - Dark and Light theme support
 - Interactive hover effects and scroll animations
@@ -31,13 +31,6 @@ A stunning, fully-responsive portfolio website with advanced animations, multi-l
 - Experience timeline with achievements
 - Projects showcase
 - Contact form
-
-## Quick Start
-
-1. Open `index.html` in your browser
-2. Customize content with your information
-3. Update colors in CSS variables
-4. Deploy to your hosting platform
 
 ## Browser Support
 
