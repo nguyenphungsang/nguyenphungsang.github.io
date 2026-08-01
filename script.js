@@ -6,6 +6,54 @@ const AppState = {
     isLoaded: false
 };
 
+const contactForm = document.getElementById('contactForm');
+const submitBtn = document.getElementById('submitBtn');
+const submitBtnText = document.getElementById('submitBtnText');
+
+const GITHUB_USERNAME = 'nguyenphungsang';
+const REPO_NAME = 'nguyenphungsang.github.io';
+
+contactForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const originalText = submitBtnText.innerText;
+    submitBtnText.innerText = 'Sending...';
+    submitBtn.disabled = true;
+
+    const issueData = {
+        title: `[Contact Form] ${document.getElementById('contactSubject').value}`,
+        body: JSON.stringify({
+            name: document.getElementById('contactName').value,
+            email: document.getElementById('contactEmail').value,
+            subject: document.getElementById('contactSubject').value,
+            message: document.getElementById('contactMessage').value
+        })
+    };
+
+    try {
+        const response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/issues`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(issueData)
+        });
+
+        if (response.ok) {
+            alert('Thank you, your message has been sent successfully!');
+            contactForm.reset();
+        } else {
+            alert('An error occurred while sending the message!');
+        }
+    } catch (error) {
+        console.error(error);
+        alert('Cannot connect to the system!');
+    } finally {
+        submitBtnText.innerText = originalText;
+        submitBtn.disabled = false;
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
 });
