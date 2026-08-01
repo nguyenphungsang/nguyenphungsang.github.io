@@ -49,4 +49,4 @@ LinkedIn: [Phung Sang Nguyen](https://linkedin.com/in/nguyenphungsang)
 
 ## Tags
 
-#portfolio #webdev #frontend #javascript #css #html #animation #responsive #webdesign #developer #codepen #ui #ux #modern #interactive #cv #resume #portfolio-website #web-development #animejs #tailwindcss #multilanguage #rtl #arabic #english #darkmode #parallax #smooth-scroll #glassmorphism #gradient #code-themed #professional #freelance #tech-portfolio #developer-portfolio #responsive-portfolio #mobile-friendly #performance #optimized
+#portfolio #webdev #frontend #javascript #css #html #animation #responsive #webdesign #developer #ui #ux #modern #interactive #cv #resume #portfolio-website #web-development #animejs #tailwindcss #multilanguage #rtl #arabic #english #darkmode #parallax #smooth-scroll #glassmorphism #gradient #code-themed #professional #freelance #tech-portfolio #developer-portfolio #responsive-portfolio #mobile-friendly #performance #optimized
