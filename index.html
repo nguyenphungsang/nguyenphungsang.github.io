@@ -176,6 +176,9 @@
                         <a href="https://linktr.ee/phungsangnguyen" class="social-icon" title="Linktree">
                             <i class="fas fa-link"></i>
                         </a>
+                        <a href="https://t.me/Frank_S_Nguyen" class="social-icon" title="Telegram">
+                            <i class="fab fa-telegram"></i>
+                        </a>
                         <a href="mailto:phungsangn@gmail.com" class="social-icon" title="Email">
                             <i class="fas fa-envelope"></i>
                         </a>
@@ -824,19 +827,19 @@
                     
                     <form class="contact-form" id="contactForm">
                         <div class="form-group">
-                            <input type="text" class="form-input" placeholder="Name" data-placeholder-en="Name" data-placeholder-vi="Ten" required>
+                            <input type="text" id="contactName" class="form-input" placeholder="Name" data-placeholder-en="Name" data-placeholder-vi="Ten" required>
                         </div>
                         <div class="form-group">
-                            <input type="email" class="form-input" placeholder="Email" data-placeholder-en="Email" data-placeholder-vi="Email" required>
+                            <input type="email" id="contactEmail" class="form-input" placeholder="Email" data-placeholder-en="Email" data-placeholder-vi="Email" required>
                         </div>
                         <div class="form-group">
-                            <input type="text" class="form-input" placeholder="Subject" data-placeholder-en="Subject" data-placeholder-vi="Tieu de" required>
+                            <input type="text" id="contactSubject" class="form-input" placeholder="Subject" data-placeholder-en="Subject" data-placeholder-vi="Tieu de" required>
                         </div>
                         <div class="form-group">
-                            <textarea class="form-input form-textarea" rows="5" placeholder="Message" data-placeholder-en="Message" data-placeholder-vi="Tin nhan" required></textarea>
+                            <textarea id="contactMessage" class="form-input form-textarea" rows="5" placeholder="Message" data-placeholder-en="Message" data-placeholder-vi="Tin nhan" required></textarea>
                         </div>
-                        <button type="submit" class="btn btn-primary btn-submit">
-                            <span data-text-en="Send Message" data-text-vi="Gui tin nhan">Send Message</span>
+                        <button type="submit" id="submitBtn" class="btn btn-primary btn-submit">
+                            <span id="submitBtnText" data-text-en="Send Message" data-text-vi="Gui tin nhan">Send Message</span>
                             <i class="fas fa-paper-plane"></i>
                         </button>
                     </form>

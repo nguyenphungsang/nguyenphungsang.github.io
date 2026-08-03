@@ -1,0 +1,31 @@
+name: Contact Form Notification
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  send-email:
+    if: contains(github.event.issue.labels.*.name, 'contact-form')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "${{ github.event.issue.title }}"
+          to: phungsangn@gmail.com
+          from: "Portfolio Contact"
+          body: |
+            You have a new message from Portfolio:
+
+            ${{ github.event.issue.body }}
+
+      - name: Close Issue Automatically
+        uses: peter-evans/close-issue@v3
+        with:
+          comment: "Your message has been sent to the Admin successfully!"

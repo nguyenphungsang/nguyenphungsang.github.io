@@ -6,6 +6,7 @@ const AppState = {
     isLoaded: false
 };
 
+/*
 const contactForm = document.getElementById('contactForm');
 const submitBtn = document.getElementById('submitBtn');
 const submitBtnText = document.getElementById('submitBtnText');
@@ -53,6 +54,7 @@ contactForm.addEventListener('submit', async function(e) {
         submitBtn.disabled = false;
     }
 });
+*/
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
@@ -271,18 +273,54 @@ function initFormHandlers() {
     }
 }
 
-function handleFormSubmit(e) {
+async function handleFormSubmit(e) {
     e.preventDefault();
-    const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData);
-    console.log('Form submitted:', data);
     
-    const message = AppState.currentLang === 'ar' 
-        ? 'تم إرسال الرسالة بنجاح!' 
-        : 'Message sent successfully!';
-    
-    alert(message);
-    e.target.reset();
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) submitBtn.disabled = true;
+
+    // Lấy thông tin từ form
+    const name = document.getElementById('contactName')?.value || e.target.querySelector('input[type="text"]').value;
+    const email = document.getElementById('contactEmail')?.value || e.target.querySelector('input[type="email"]').value;
+    const subject = document.getElementById('contactSubject')?.value || 'No Subject';
+    const message = document.getElementById('contactMessage')?.value || e.target.querySelector('textarea').value;
+
+    const REPO_OWNER = 'nguyenphungsang';
+    const REPO_NAME = 'nguyenphungsang.github.io';
+
+    const issueData = {
+        title: `[Contact Form] ${subject}`,
+        body: `**From:** ${name} (${email})\n\n**Message:**\n${message}`,
+        labels: ['contact-form']
+    };
+
+    try {
+        const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(issueData)
+        });
+
+        if (response.ok || response.status === 201) {
+            const msg = AppState.currentLang === 'vi' 
+                ? 'Tin nhắn đã được gửi thành công!' 
+                : 'Message sent successfully!';
+            alert(msg);
+            e.target.reset();
+        } else {
+            throw new Error('Failed to create issue');
+        }
+    } catch (error) {
+        console.error(error);
+        const errorMsg = AppState.currentLang === 'vi' 
+            ? 'Gửi thất bại, vui lòng thử lại sau!' 
+            : 'Failed to send message, please try again!';
+        alert(errorMsg);
+    } finally {
+        if (submitBtn) submitBtn.disabled = false;
+    }
 }
 
 function initMobileMenu() {
