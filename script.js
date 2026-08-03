@@ -6,56 +6,6 @@ const AppState = {
     isLoaded: false
 };
 
-/*
-const contactForm = document.getElementById('contactForm');
-const submitBtn = document.getElementById('submitBtn');
-const submitBtnText = document.getElementById('submitBtnText');
-
-const GITHUB_USERNAME = 'nguyenphungsang';
-const REPO_NAME = 'nguyenphungsang.github.io';
-
-contactForm.addEventListener('submit', async function(e) {
-    e.preventDefault();
-
-    const originalText = submitBtnText.innerText;
-    submitBtnText.innerText = 'Sending...';
-    submitBtn.disabled = true;
-
-    const issueData = {
-        title: `[Contact Form] ${document.getElementById('contactSubject').value}`,
-        body: JSON.stringify({
-            name: document.getElementById('contactName').value,
-            email: document.getElementById('contactEmail').value,
-            subject: document.getElementById('contactSubject').value,
-            message: document.getElementById('contactMessage').value
-        })
-    };
-
-    try {
-        const response = await fetch(`https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/issues`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(issueData)
-        });
-
-        if (response.ok) {
-            alert('Thank you, your message has been sent successfully!');
-            contactForm.reset();
-        } else {
-            alert('An error occurred while sending the message!');
-        }
-    } catch (error) {
-        console.error(error);
-        alert('Cannot connect to the system!');
-    } finally {
-        submitBtnText.innerText = originalText;
-        submitBtn.disabled = false;
-    }
-});
-*/
-
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
 });
@@ -273,24 +223,46 @@ function initFormHandlers() {
     }
 }
 
-function handleFormSubmit(e) {
+async function handleFormSubmit(e) {
     e.preventDefault();
-
-    const name = document.getElementById('contactName')?.value || '';
-    const email = document.getElementById('contactEmail')?.value || '';
-    const subject = document.getElementById('contactSubject')?.value || 'No Subject';
-    const message = document.getElementById('contactMessage')?.value || '';
-
-    const REPO_OWNER = 'nguyenphungsang';
-    const REPO_NAME = 'nguyenphungsang.github.io';
-
-    const issueTitle = encodeURIComponent(`[Contact Form] ${subject}`);
-    const issueBody = encodeURIComponent(`**From:** ${name} (${email})\n\n**Message:**\n${message}`);
     
-    const githubIssueUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/issues/new?title=${issueTitle}&body=${issueBody}&labels=contact-form`;
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) submitBtn.disabled = true;
 
-    window.open(githubIssueUrl, '_blank');
-    e.target.reset();
+    const payload = {
+        name: document.getElementById('contactName')?.value || '',
+        email: document.getElementById('contactEmail')?.value || '',
+        subject: document.getElementById('contactSubject')?.value || 'No Subject',
+        message: document.getElementById('contactMessage')?.value || ''
+    };
+
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwCidoniuEv8XPLwesJyQlf_88njNEGL1zNnl7glkXFaUv1dYRWjRR1INPJt0qJDBQl/exec';
+
+    try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const msg = (typeof AppState !== 'undefined' && AppState.currentLang === 'vi')
+            ? 'Tin nhắn đã được gửi thành công!' 
+            : 'Message sent successfully!';
+        alert(msg);
+        e.target.reset();
+
+    } catch (error) {
+        console.error("Error sending message:", error);
+        const errorMsg = (typeof AppState !== 'undefined' && AppState.currentLang === 'vi')
+            ? 'Gửi thất bại, vui lòng thử lại sau!' 
+            : 'Failed to send message, please try again!';
+        alert(errorMsg);
+    } finally {
+        if (submitBtn) submitBtn.disabled = false;
+    }
 }
 
 function initMobileMenu() {
