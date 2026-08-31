@@ -31,17 +31,36 @@
     --transition-smooth: 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     --font-primary: 'Tajawal', sans-serif;
     --font-code: 'Fira Code', monospace;
+    --header-bg: rgba(15, 23, 42, 0.8);
+    --header-bg-scrolled: rgba(15, 23, 42, 0.95);
 }
 
+/* Light theme.
+   The page ground is tinted rather than pure white, otherwise the white cards
+   have nothing to separate them from it, and the accent colours are darkened
+   because the dark-theme pastels fall far below readable contrast on white. */
 [data-theme="light"] {
-    --bg-dark: #ffffff;
-    --bg-darker: #f8f9fa;
+    --primary: #7c3aed;
+    --secondary: #6d28d9;
+    --accent: #b45309;
+    --cyan: #0e7490;
+    --purple: #6d28d9;
+    --green: #15803d;
+    --bg-dark: #f5f7fb;
+    --bg-darker: #e9edf5;
     --bg-card: #ffffff;
-    --bg-hover: #f1f3f5;
-    --border: #e5e7eb;
+    --bg-hover: #eef2f9;
+    --border: #dde3ee;
     --text-primary: #1f2937;
     --text-secondary: #4b5563;
-    --text-muted: #9ca3af;
+    --text-muted: #6b7280;
+    --gradient-1: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #0e7490 100%);
+    --gradient-2: linear-gradient(135deg, #0e7490 0%, #6d28d9 50%, #b45309 100%);
+    --gradient-3: linear-gradient(135deg, #15803d 0%, #0e7490 100%);
+    --shadow-md: 0 4px 6px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 10px 15px rgba(15, 23, 42, 0.1);
+    --header-bg: rgba(255, 255, 255, 0.82);
+    --header-bg-scrolled: rgba(255, 255, 255, 0.95);
 }
 
 /*[dir="rtl"] { direction: rtl; text-align: right; } */
@@ -191,15 +210,17 @@ img {
     top: 0;
     left: 0;
     width: 100%;
-    background: rgba(10, 14, 39, 0.8);
+    /* Themed, so the bar doesn't stay navy-blue in light mode. */
+    background: var(--header-bg);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
     z-index: 1000;
     transition: all var(--transition);
 }
 
 .main-header.scrolled {
-    background: rgba(10, 14, 39, 0.95);
+    background: var(--header-bg-scrolled);
     box-shadow: var(--shadow-md);
 }
 
@@ -1565,12 +1586,16 @@ img {
     
     .hero-section {
         min-height: auto;
-        padding: 2rem 0;
+        padding: 2rem 0 3rem;
+        /* Stack the hero and the scroll cue instead of laying them out in a
+           row, so the cue can sit below the content rather than on top of it. */
+        flex-direction: column;
     }
-    
+
     .hero-container {
         padding: 0 1rem;
         gap: 2rem;
+        width: 100%;
     }
     
     .hero-name {
@@ -1779,30 +1804,80 @@ img {
         gap: 1rem;
     }
     
+    /* --- Hero image + tech badges -------------------------------------
+       On desktop the three badges float around the profile circle, which
+       needs horizontal room a phone doesn't have. Rather than hiding them,
+       lay the circle and a compact 3-up badge row out in a grid. */
+    .hero-image-wrapper {
+        width: 100%;
+    }
+
     .hero-image-container {
-        width: 280px;
-        height: 280px;
+        width: 100%;
+        max-width: 420px;
+        height: auto;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.6rem;
+        align-items: stretch;
     }
-    
-    .floating-badge {
+
+    /* The frame carries its own glow via box-shadow; the separate glow layer
+       is sized off the container, which is no longer circle-shaped here. */
+    .profile-image-glow {
         display: none;
     }
-    
-    .scroll-indicator {
-        bottom: 1rem;
+
+    .profile-image-frame {
+        grid-column: 1 / -1;
+        justify-self: center;
+        width: 220px;
+        height: 220px;
+        margin-bottom: 0.6rem;
     }
-    
-    .badge-content {
-        display: none;
-    }
-    
+
     .floating-badge {
-        min-width: auto;
-        padding: 0.8rem 1rem;
+        display: flex;
+        position: static;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        text-align: center;
+        gap: 0.45rem;
+        min-width: 0;
+        padding: 0.75rem 0.5rem;
+        border-radius: 12px;
+        /* The bobbing keyframes assume absolute positioning. */
+        animation: none;
     }
-    
+
     .floating-badge i {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
+    }
+
+    .badge-content {
+        display: flex;
+        width: 100%;
+    }
+
+    .badge-title {
+        font-size: 0.72rem;
+        line-height: 1.3;
+    }
+
+    /* The secondary line is too long for a third of a phone screen. */
+    .badge-libs {
+        display: none;
+    }
+
+    /* --- Scroll cue ---------------------------------------------------
+       The hero is auto-height on phones, so an absolutely positioned cue
+       lands on top of the social icons. Put it back in the flow. */
+    .scroll-indicator {
+        position: static;
+        transform: none;
+        margin: 2rem auto 0;
     }
 }
 
@@ -1864,14 +1939,22 @@ img {
         font-size: 1rem;
     }
     
-    .hero-image-container {
-        width: 220px;
-        height: 220px;
+    .profile-image-frame {
+        width: 190px;
+        height: 190px;
     }
-    
-    .profile-image-glow {
-        width: 110%;
-        height: 110%;
+
+    .floating-badge {
+        padding: 0.65rem 0.35rem;
+        gap: 0.35rem;
+    }
+
+    .floating-badge i {
+        font-size: 1.25rem;
+    }
+
+    .badge-title {
+        font-size: 0.66rem;
     }
     
     .about-stats {
@@ -2052,12 +2135,238 @@ img {
         font-size: 1.3rem;
     }
     
-    .hero-image-container {
-        width: 180px;
-        height: 180px;
+    .profile-image-frame {
+        width: 160px;
+        height: 160px;
     }
-    
+
+    .badge-title {
+        font-size: 0.6rem;
+    }
+
     .stat-number {
         font-size: 1.5rem;
+    }
+}
+/* ============================================================================
+   Runtime components
+   Styles for the reveal system and the UI chrome that js/main.js injects
+   (scroll progress, back-to-top, toasts, copy buttons). Everything here is
+   additive: with JavaScript disabled none of it applies and nothing hides.
+   ========================================================================= */
+
+/* --- Scroll reveal -------------------------------------------------------
+   js/animations.js adds [data-reveal] at runtime, so content is never left
+   invisible if the script fails to load. */
+[data-reveal] {
+    opacity: 0;
+    transform: translate3d(0, 26px, 0);
+    transition: opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+                transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+    will-change: opacity, transform;
+}
+
+[data-reveal="left"]  { transform: translate3d(-30px, 0, 0); }
+[data-reveal="right"] { transform: translate3d(30px, 0, 0); }
+
+[data-reveal].is-visible {
+    opacity: 1;
+    transform: none;
+}
+
+/* --- Hero typing cursor -------------------------------------------------- */
+.name-value.is-typing::after {
+    content: '|';
+    color: var(--primary);
+    -webkit-text-fill-color: var(--primary);
+    animation: blink 1s infinite;
+    margin-inline-start: 0.1em;
+}
+
+/* --- Scroll progress ----------------------------------------------------- */
+.scroll-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 3px;
+    background: var(--gradient-1);
+    z-index: 1100;
+    transition: width 0.1s linear;
+    pointer-events: none;
+}
+
+/* --- Back to top --------------------------------------------------------- */
+.back-to-top {
+    position: fixed;
+    inset-inline-end: 1.25rem;
+    bottom: 1.25rem;
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    color: var(--primary);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(12px);
+    transition: opacity var(--transition), transform var(--transition),
+                visibility var(--transition), background var(--transition),
+                color var(--transition);
+    z-index: 1050;
+}
+
+.back-to-top.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.back-to-top:hover {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+/* --- Toasts -------------------------------------------------------------- */
+.toast-host {
+    position: fixed;
+    inset-inline-end: 1.25rem;
+    bottom: 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    z-index: 1200;
+    pointer-events: none;
+    max-width: min(360px, calc(100vw - 2.5rem));
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.85rem 1.1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-inline-start: 3px solid var(--primary);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toast i {
+    font-size: 1.05rem;
+    flex-shrink: 0;
+}
+
+.toast-success { border-inline-start-color: var(--green); }
+.toast-success i { color: var(--green); }
+.toast-error   { border-inline-start-color: #f87171; }
+.toast-error i { color: #f87171; }
+.toast-info i  { color: var(--cyan); }
+
+/* --- Copy button on contact cards ---------------------------------------- */
+.contact-item {
+    position: relative;
+}
+
+.contact-copy {
+    position: absolute;
+    top: 0.7rem;
+    inset-inline-end: 0.7rem;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    opacity: 0.65;
+    transition: all var(--transition-fast);
+}
+
+.contact-copy:hover,
+.contact-copy:focus-visible {
+    opacity: 1;
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
+.contact-copy.is-copied {
+    color: var(--green);
+    border-color: var(--green);
+    opacity: 1;
+}
+
+/* --- Form states --------------------------------------------------------- */
+.form-input.has-error {
+    border-color: #f87171;
+    box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.12);
+}
+
+.btn-submit.is-busy {
+    opacity: 0.75;
+    cursor: progress;
+}
+
+/* --- Reduced motion ------------------------------------------------------
+   One place that switches the whole site to a still version for visitors who
+   asked their OS to minimise animation. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    [data-reveal] {
+        opacity: 1 !important;
+        transform: none !important;
+    }
+}
+
+/* --- Small screens ------------------------------------------------------- */
+@media (max-width: 768px) {
+    .toast-host {
+        inset-inline: 1rem;
+        /* Clear the back-to-top button and the submit button below it. */
+        bottom: 4.75rem;
+        max-width: none;
+        align-items: stretch;
+    }
+
+    .back-to-top {
+        width: 42px;
+        height: 42px;
+        bottom: 1rem;
+        inset-inline-end: 1rem;
+    }
+
+    .contact-copy {
+        top: 0.6rem;
+        inset-inline-end: 0.6rem;
     }
 }

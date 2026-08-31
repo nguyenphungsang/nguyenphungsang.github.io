@@ -1,490 +1,469 @@
 /**
- * animations.js — Anime.js-powered entrance/scroll animations, the boot
- * loader sequence, and parallax/smooth-scroll effects for the portfolio site.
+ * animations.js - Motion layer for the portfolio site.
  *
- * Pairs with js/main.js, which owns app state, language/theme, navigation,
- * the contact form, and the mobile menu.
+ * Design rules this file follows:
+ *
+ *  1. The page must be readable without it. Reveal states are applied by JS
+ *     (never hard-coded in the HTML), so if this file fails to load nothing
+ *     is left invisible.
+ *  2. CSS does the moving, JS only decides when. Transitions run on the
+ *     compositor, which is what keeps a mid-range phone at 60fps; anime.js is
+ *     reserved for the things CSS cannot do - counters and the loader.
+ *  3. `prefers-reduced-motion` is honoured everywhere, and pointer-driven
+ *     effects (magnetic buttons, card tilt) only bind on real mice.
+ *  4. The loader can never trap the visitor: it advances on its own and is
+ *     capped by a hard deadline whether or not `window.load` ever fires.
+ *
+ * Pairs with js/main.js.
  */
+(function (window, document) {
+    'use strict';
 
-function inView(element, callback, options = {}) {
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                callback(entry);
-                if (options.once !== false) {
-                    observer.unobserve(entry.target);
-                }
+    var P = window.Portfolio || {};
+    var utils = P.utils || {
+        $: function (s, r) { return (r || document).querySelector(s); },
+        $$: function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); },
+        reducedMotion: function () { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; },
+        finePointer: function () { return window.matchMedia('(hover: hover) and (pointer: fine)').matches; },
+        isMobile: function () { return window.matchMedia('(max-width: 768px)').matches; },
+        rafThrottle: function (fn) {
+            var queued = false, lastArgs;
+            return function () {
+                lastArgs = arguments;
+                if (queued) return;
+                queued = true;
+                window.requestAnimationFrame(function () { queued = false; fn.apply(null, lastArgs); });
+            };
+        }
+    };
+
+    var hasAnime = function () { return typeof window.anime !== 'undefined'; };
+    var still = utils.reducedMotion();
+
+    /* =============================================================
+     * Loader
+     *
+     * Progress creeps to 90% on its own, then completes as soon as the page
+     * has finished loading - or after HARD_DEADLINE, whichever comes first.
+     * `window.load` waits on every font, CDN script and image, which on a
+     * slow mobile connection is exactly how a loading screen ends up looking
+     * frozen. The deadline makes that impossible.
+     * ============================================================= */
+    var loader = {
+        HARD_DEADLINE: 2500,
+        SOFT_CEILING: 90,
+
+        start: function () {
+            this.el = document.getElementById('loader');
+            this.label = document.getElementById('loaderPercent');
+
+            if (!this.el) { reveal.play(); return; }
+
+            this.progress = 0;
+            this.pageReady = false;
+            this.finished = false;
+
+            if (document.readyState === 'complete') {
+                this.pageReady = true;
+            } else {
+                window.addEventListener('load', function () { loader.pageReady = true; });
             }
-        });
-    }, {
-        threshold: options.amount || 0.1,
-        rootMargin: options.rootMargin || '0px'
-    });
-    observer.observe(element);
-    return () => observer.unobserve(element);
-}
+            setTimeout(function () { loader.pageReady = true; }, this.HARD_DEADLINE);
 
-function animateElement(element, props, options = {}) {
-    if (typeof anime === 'undefined') return;
-    const animeProps = {};
-    if (props.opacity) animeProps.opacity = props.opacity;
-    if (props.x !== undefined) animeProps.translateX = props.x;
-    if (props.y !== undefined) animeProps.translateY = props.y;
-    if (props.scale) animeProps.scale = props.scale;
-    return anime({
-        targets: element,
-        ...animeProps,
-        duration: (options.duration || 0.8) * 1000,
-        delay: (options.delay || 0) * 1000,
-        easing: options.easing || 'easeOutExpo'
-    });
-}
+            this.timer = setInterval(function () { loader.tick(); }, 90);
+        },
 
-let loaderStarted = false;
-function startLoaderOnce() {
-    if (loaderStarted) return;
-    loaderStarted = true;
-    setTimeout(() => {
-        initLoaderAnimation();
-    }, 100);
-}
-window.addEventListener('load', startLoaderOnce);
-// Safety net: the 'load' event waits for every external resource (Tailwind CDN,
-// Font Awesome, Google Fonts, anime.js...). On a slow/mobile connection this can
-// take many seconds, making the loading screen look stuck. Force it to start
-// after 4s regardless.
-setTimeout(startLoaderOnce, 4000);
+        tick: function () {
+            var ceiling = this.pageReady ? 100 : this.SOFT_CEILING;
+            // Ease off as it approaches the ceiling so it never sits dead still.
+            var step = Math.max(1, (ceiling - this.progress) * 0.18);
+            this.progress = Math.min(ceiling, this.progress + step);
 
-function initLoaderAnimation() {
-    const loader = document.getElementById('loader');
-    const loaderPercent = document.getElementById('loaderPercent');
-    if (!loader || !loaderPercent) return;
+            if (this.label) this.label.textContent = Math.floor(this.progress) + '%';
+            if (this.progress >= 99.5) this.finish();
+        },
 
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress >= 100) {
-            progress = 100;
-            clearInterval(progressInterval);
-            setTimeout(() => {
-                if (typeof anime !== 'undefined') {
-                    anime({
-                        targets: loader,
+        finish: function () {
+            if (this.finished) return;
+            this.finished = true;
+            clearInterval(this.timer);
+            if (this.label) this.label.textContent = '100%';
+
+            var hide = function () {
+                loader.el.classList.add('hidden');
+                document.body.classList.add('is-loaded');
+                reveal.play();
+                hero.play();
+            };
+
+            if (still) { hide(); return; }
+
+            setTimeout(function () {
+                if (hasAnime()) {
+                    window.anime({
+                        targets: loader.el,
                         opacity: [1, 0],
-                        duration: 500,
+                        duration: 450,
                         easing: 'easeInOutQuad',
-                        complete: () => {
-                            loader.classList.add('hidden');
-                            initPageAnimations();
-                        }
+                        complete: hide
                     });
                 } else {
-                    loader.classList.add('hidden');
-                    initPageAnimations();
+                    loader.el.style.transition = 'opacity .45s ease';
+                    loader.el.style.opacity = '0';
+                    setTimeout(hide, 450);
                 }
-            }, 300);
+            }, 200);
         }
-        if (loaderPercent) {
-            loaderPercent.textContent = Math.floor(progress) + '%';
+    };
+
+    /* =============================================================
+     * Reveal on scroll
+     *
+     * One observer for the whole page. Elements are tagged at runtime, so
+     * the markup stays clean and nothing is hidden if this never runs.
+     * ============================================================= */
+    var reveal = {
+        // [selector, direction, stagger step in ms]
+        GROUPS: [
+            ['.section-header', 'up', 0],
+            ['.about-text-wrapper', 'left', 0],
+            ['.about-image-wrapper', 'right', 0],
+            ['.stat-item', 'up', 90],
+            ['.skill-category', 'up', 120],
+            ['.timeline-item', 'left', 120],
+            ['.project-card', 'up', 110],
+            ['.contact-item', 'left', 90],
+            ['.contact-form', 'right', 0]
+        ],
+
+        play: function () {
+            if (this.started) return;
+            this.started = true;
+
+            if (still || !('IntersectionObserver' in window)) return; // everything stays visible
+
+            var observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (!entry.isIntersecting) return;
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);
+                });
+            }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+
+            this.GROUPS.forEach(function (group) {
+                var selector = group[0], direction = group[1], step = group[2];
+
+                utils.$$(selector).forEach(function (el, index) {
+                    el.setAttribute('data-reveal', direction);
+                    if (step) el.style.transitionDelay = (index % 4) * step + 'ms';
+
+                    // Anything already on screen shows immediately - no blank
+                    // first paint for content above the fold.
+                    var box = el.getBoundingClientRect();
+                    if (box.top < window.innerHeight * 0.9) {
+                        window.requestAnimationFrame(function () { el.classList.add('is-visible'); });
+                    } else {
+                        observer.observe(el);
+                    }
+                });
+            });
+
+            counters.watch();
+            skills.watch();
+            pointerFx.bind();
+            parallax.bind();
         }
-    }, 100);
-}
+    };
 
-function initPageAnimations() {
-    setTimeout(() => {
-        initHeroAnimations();
-        initSkillAnimations();
-        initTimelineAnimations();
-        initProjectAnimations();
-        initScrollAnimations();
-        initContactAnimations();
-        animateStats();
-        initParallax();
-        initSmoothScroll();
-    }, 300);
-}
+    /* =============================================================
+     * Hero intro
+     * ============================================================= */
+    var hero = {
+        play: function () {
+            if (still) return;
 
-function initHeroAnimations() {
-    if (typeof anime === 'undefined') return;
+            this.typewriter();
 
-    const heroName = document.getElementById('heroName');
-    if (heroName) {
-        const nameValue = heroName.querySelector('.name-value');
-        if (nameValue) {
-            const originalText = nameValue.textContent;
-            nameValue.textContent = '';
-            anime({
-                targets: { value: 0 },
-                value: originalText.length,
-                duration: 1500,
-                delay: 500,
-                easing: 'easeInOutQuad',
-                update: function(anim) {
-                    const length = Math.floor(anim.animatables[0].target.value);
-                    nameValue.textContent = originalText.substring(0, length);
-                },
-                complete: () => {
-                    const cursor = document.createElement('span');
-                    cursor.className = 'name-cursor';
-                    cursor.textContent = '|';
-                    cursor.style.animation = 'blink 1s infinite';
-                    nameValue.appendChild(cursor);
-                    setTimeout(() => cursor.remove(), 2000);
-                }
-            });
-        }
-    }
-
-    const heroTitle = document.querySelector('.hero-title');
-    if (heroTitle) {
-        anime({
-            targets: heroTitle,
-            opacity: [0, 1],
-            translateX: [-30, 0],
-            delay: 800,
-            duration: 1000,
-            easing: 'easeOutExpo'
-        });
-    }
-
-    const heroDescription = document.querySelector('.hero-description');
-    if (heroDescription) {
-        anime({
-            targets: heroDescription,
-            opacity: [0, 1],
-            translateY: [20, 0],
-            delay: 1200,
-            duration: 1000,
-            easing: 'easeOutExpo'
-        });
-    }
-
-    const heroButtons = document.querySelectorAll('.hero-buttons .btn');
-    if (heroButtons.length > 0) {
-        anime({
-            targets: heroButtons,
-            opacity: [0, 1],
-            scale: [0.8, 1],
-            delay: anime.stagger(100, {start: 1500}),
-            duration: 800,
-            easing: 'easeOutBack'
-        });
-    }
-
-    const socialIcons = document.querySelectorAll('.hero-social .social-icon');
-    if (socialIcons.length > 0) {
-        anime({
-            targets: socialIcons,
-            opacity: [0, 1],
-            scale: [0, 1],
-            rotate: [180, 0],
-            delay: anime.stagger(100, {start: 2000}),
-            duration: 800,
-            easing: 'easeOutBack'
-        });
-    }
-
-    const profileImage = document.getElementById('profileImage');
-    if (profileImage) {
-        anime({
-            targets: profileImage,
-            opacity: [0, 1],
-            scale: [0.8, 1],
-            rotate: [180, 0],
-            delay: 1000,
-            duration: 1500,
-            easing: 'easeOutElastic(1, .8)'
-        });
-
-        profileImage.addEventListener('mouseenter', () => {
-            anime({
-                targets: profileImage,
-                scale: [1, 1.1],
-                rotate: [0, 5],
-                duration: 500,
-                easing: 'easeOutElastic(1, .8)'
-            });
-        });
-
-        profileImage.addEventListener('mouseleave', () => {
-            anime({
-                targets: profileImage,
-                scale: [1.1, 1],
-                rotate: [5, 0],
-                duration: 500,
-                easing: 'easeOutElastic(1, .8)'
-            });
-        });
-    }
-
-    const badges = document.querySelectorAll('.floating-badge');
-    if (badges.length > 0) {
-        badges.forEach((badge, index) => {
-            anime({
-                targets: badge,
-                opacity: [0, 1],
-                scale: [0, 1],
-                delay: 1500 + (index * 200),
-                duration: 800,
-                easing: 'easeOutBack'
-            });
-        });
-    }
-}
-
-function initSkillAnimations() {
-    const skillsSection = document.getElementById('skills');
-    if (!skillsSection) return;
-
-    const skillItems = skillsSection.querySelectorAll('.skill-item');
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const skillItem = entry.target;
-                const progressBar = skillItem.querySelector('.skill-progress');
-                const percentElement = skillItem.querySelector('.skill-percent');
-                const percent = parseInt(skillItem.getAttribute('data-percent') || 0);
-
-                if (progressBar && typeof anime !== 'undefined') {
-                    anime({
-                        targets: progressBar,
-                        width: ['0%', percent + '%'],
-                        duration: 2000,
-                        easing: 'easeOutExpo',
-                        delay: 300
-                    });
-
-                    anime({
-                        targets: { value: 0 },
-                        value: percent,
-                        duration: 2000,
-                        easing: 'easeOutExpo',
-                        delay: 300,
-                        update: function(anim) {
-                            if (percentElement) {
-                                percentElement.textContent = Math.floor(anim.animatables[0].target.value) + '%';
-                            }
-                        }
-                    });
-                }
-                observer.unobserve(skillItem);
+            if (!hasAnime()) {
+                document.body.classList.add('hero-fallback');
+                return;
             }
-        });
-    }, { threshold: 0.5 });
 
-    skillItems.forEach(item => observer.observe(item));
-}
+            var anime = window.anime;
+            var sequence = [
+                ['.hero-greeting', 0, 0],
+                ['.hero-title', 24, 250],
+                ['.hero-description', 20, 400],
+                ['.hero-buttons .btn', 16, 550],
+                ['.hero-social .social-icon', 14, 700]
+            ];
 
-function initTimelineAnimations() {
-    const timelineItems = document.querySelectorAll('.timeline-item');
-    timelineItems.forEach((item, index) => {
-        inView(item, () => {
-            if (typeof anime !== 'undefined') {
+            sequence.forEach(function (item) {
+                var nodes = utils.$$(item[0]);
+                if (!nodes.length) return;
                 anime({
-                    targets: item,
+                    targets: nodes,
                     opacity: [0, 1],
-                    translateX: [-50, 0],
-                    delay: index * 150,
-                    duration: 1000,
+                    translateY: [item[1], 0],
+                    delay: anime.stagger(70, { start: item[2] }),
+                    duration: 720,
                     easing: 'easeOutExpo'
                 });
-            } else {
-                animateElement(item, { opacity: [0, 1], x: [-50, 0] }, { duration: 0.8, delay: index * 0.1 });
-            }
-        }, { amount: 0.3 });
-    });
-}
+            });
 
-function initProjectAnimations() {
-    const projectCards = document.querySelectorAll('.project-card');
-    projectCards.forEach((card, index) => {
-        inView(card, () => {
-            if (typeof anime !== 'undefined') {
+            var frame = utils.$('.profile-image-frame');
+            if (frame) {
                 anime({
-                    targets: card,
+                    targets: frame,
                     opacity: [0, 1],
-                    translateY: [50, 0],
+                    scale: [0.86, 1],
+                    duration: 1100,
+                    easing: 'easeOutElastic(1, .7)'
+                });
+            }
+
+            var badges = utils.$$('.floating-badge');
+            if (badges.length) {
+                anime({
+                    targets: badges,
+                    opacity: [0, 1],
+                    translateY: [16, 0],
                     scale: [0.9, 1],
-                    delay: index * 100,
-                    duration: 1000,
-                    easing: 'easeOutExpo'
-                });
-            } else {
-                animateElement(card, { opacity: [0, 1], y: [50, 0], scale: [0.9, 1] }, { duration: 0.8, delay: index * 0.1 });
-            }
-        }, { amount: 0.2 });
-
-        card.addEventListener('mouseenter', () => {
-            if (typeof anime !== 'undefined') {
-                anime({ targets: card, scale: [1, 1.02], duration: 300, easing: 'easeOutQuad' });
-            }
-        });
-
-        card.addEventListener('mouseleave', () => {
-            if (typeof anime !== 'undefined') {
-                anime({ targets: card, scale: [1.02, 1], duration: 300, easing: 'easeOutQuad' });
-            }
-        });
-    });
-}
-
-function initScrollAnimations() {
-    const sections = document.querySelectorAll('.section');
-    sections.forEach(section => {
-        inView(section, () => {
-            const sectionHeader = section.querySelector('.section-header');
-            if (sectionHeader && typeof anime !== 'undefined') {
-                anime({
-                    targets: sectionHeader,
-                    opacity: [0, 1],
-                    translateY: [-20, 0],
-                    duration: 600,
-                    easing: 'easeOutExpo'
+                    delay: anime.stagger(140, { start: 600 }),
+                    duration: 800,
+                    easing: 'easeOutBack'
                 });
             }
-        }, { amount: 0.2 });
-    });
+        },
 
-    const cards = document.querySelectorAll('.card, .project-card, .contact-item');
-    cards.forEach((card, index) => {
-        inView(card, () => {
-            if (typeof anime !== 'undefined') {
-                anime({
-                    targets: card,
-                    opacity: [0, 1],
-                    translateY: [30, 0],
-                    delay: index * 30,
-                    duration: 500,
+        /**
+         * Types out the hero name. Re-runs on language change so the effect
+         * survives an EN/VI switch instead of being overwritten mid-flight.
+         */
+        typewriter: function () {
+            var target = utils.$('#heroName .name-value');
+            if (!target) return;
+
+            var text = target.getAttribute('data-typed') || target.textContent.trim();
+            target.setAttribute('data-typed', text);
+
+            // Reserve the final width first, otherwise the line reflows (and can
+            // wrap) on every character while the text is still growing.
+            target.style.display = 'inline-block';
+            target.style.minWidth = Math.ceil(target.getBoundingClientRect().width) + 'px';
+
+            target.textContent = '';
+            target.classList.add('is-typing');
+
+            var index = 0;
+            var step = function () {
+                target.textContent = text.slice(0, ++index);
+                if (index < text.length) {
+                    setTimeout(step, 90);
+                } else {
+                    setTimeout(function () { target.classList.remove('is-typing'); }, 1600);
+                }
+            };
+            setTimeout(step, 250);
+        }
+    };
+
+    /* =============================================================
+     * Counting numbers (About stats)
+     * ============================================================= */
+    var counters = {
+        watch: function () {
+            var nodes = utils.$$('.stat-number');
+            if (!nodes.length) return;
+
+            if (still || !('IntersectionObserver' in window)) {
+                nodes.forEach(function (n) { n.textContent = n.getAttribute('data-count') || '0'; });
+                return;
+            }
+
+            var observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (!entry.isIntersecting) return;
+                    counters.run(entry.target);
+                    observer.unobserve(entry.target);
+                });
+            }, { threshold: 0.4 });
+
+            nodes.forEach(function (n) { observer.observe(n); });
+        },
+
+        run: function (node) {
+            var target = parseInt(node.getAttribute('data-count') || '0', 10);
+
+            if (!hasAnime()) { node.textContent = target; return; }
+
+            window.anime({
+                targets: { value: 0 },
+                value: target,
+                duration: 1800,
+                easing: 'easeOutExpo',
+                update: function (anim) {
+                    node.textContent = Math.floor(anim.animatables[0].target.value);
+                }
+            });
+        }
+    };
+
+    /* =============================================================
+     * Skill bars
+     * ============================================================= */
+    var skills = {
+        watch: function () {
+            var items = utils.$$('.skill-item');
+            if (!items.length) return;
+
+            if (still || !('IntersectionObserver' in window)) {
+                items.forEach(function (item) { skills.fill(item, true); });
+                return;
+            }
+
+            var observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (!entry.isIntersecting) return;
+                    skills.fill(entry.target, false);
+                    observer.unobserve(entry.target);
+                });
+            }, { threshold: 0.35 });
+
+            items.forEach(function (item) { observer.observe(item); });
+        },
+
+        fill: function (item, instant) {
+            var bar = item.querySelector('.skill-progress');
+            var label = item.querySelector('.skill-percent');
+            var percent = parseInt(item.getAttribute('data-percent') || '0', 10);
+
+            if (instant || !hasAnime()) {
+                if (bar) bar.style.width = percent + '%';
+                if (label) label.textContent = percent + '%';
+                return;
+            }
+
+            if (bar) {
+                window.anime({
+                    targets: bar,
+                    width: ['0%', percent + '%'],
+                    duration: 1600,
+                    delay: 150,
                     easing: 'easeOutExpo'
                 });
-            } else {
-                animateElement(card, { opacity: [0, 1], y: [50, 0] }, { duration: 0.6, delay: index * 0.05 });
             }
-        }, { amount: 0.2 });
-    });
-}
 
-function animateStats() {
-    const statNumbers = document.querySelectorAll('.stat-number');
-    statNumbers.forEach(stat => {
-        const target = parseInt(stat.getAttribute('data-count') || 0);
-        inView(stat, () => {
-            if (typeof anime !== 'undefined') {
-                anime({
+            if (label) {
+                window.anime({
                     targets: { value: 0 },
-                    value: target,
-                    duration: 2000,
+                    value: percent,
+                    duration: 1600,
+                    delay: 150,
                     easing: 'easeOutExpo',
-                    update: function(anim) {
-                        stat.textContent = Math.floor(anim.animatables[0].target.value);
+                    update: function (anim) {
+                        label.textContent = Math.floor(anim.animatables[0].target.value) + '%';
                     }
                 });
             }
-        }, { amount: 0.5 });
-    });
-}
-
-function initContactAnimations() {
-    const contactItems = document.querySelectorAll('.contact-item');
-    contactItems.forEach(item => {
-        item.addEventListener('mouseenter', () => {
-            if (typeof anime !== 'undefined') {
-                anime({ targets: item, scale: [1, 1.02], duration: 200, easing: 'easeOutQuad' });
-            }
-        });
-        item.addEventListener('mouseleave', () => {
-            if (typeof anime !== 'undefined') {
-                anime({ targets: item, scale: [1.02, 1], duration: 200, easing: 'easeOutQuad' });
-            }
-        });
-    });
-}
-
-function initParallax() {
-    const profileImage = document.getElementById('profileImage');
-    if (!profileImage) return;
-
-    let ticking = false;
-    window.addEventListener('scroll', () => {
-        if (!ticking) {
-            window.requestAnimationFrame(() => {
-                const scrolled = window.pageYOffset;
-                const parallaxSpeed = 0.3;
-                const maxOffset = 100;
-                const offset = Math.min(scrolled * parallaxSpeed, maxOffset);
-
-                if (profileImage) {
-                    profileImage.style.transform = `translateY(${offset}px)`;
-                }
-
-                const gridBg = document.querySelector('.code-grid-bg');
-                if (gridBg) {
-                    gridBg.style.transform = `translateY(${scrolled * 0.2}px)`;
-                }
-
-                ticking = false;
-            });
-            ticking = true;
         }
+    };
+
+    /* =============================================================
+     * Pointer effects - mice only. Binding these on a touchscreen just
+     * adds work per frame and leaves elements stuck in a hover state.
+     * ============================================================= */
+    var pointerFx = {
+        bind: function () {
+            if (still || !utils.finePointer()) return;
+            this.magnetic();
+            this.tilt();
+        },
+
+        /** Buttons drift a few pixels towards the cursor. */
+        magnetic: function () {
+            utils.$$('.hero-buttons .btn, .btn-submit').forEach(function (btn) {
+                btn.addEventListener('mousemove', function (e) {
+                    var box = btn.getBoundingClientRect();
+                    var x = (e.clientX - box.left - box.width / 2) * 0.18;
+                    var y = (e.clientY - box.top - box.height / 2) * 0.28;
+                    btn.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+                });
+                btn.addEventListener('mouseleave', function () {
+                    btn.style.transform = '';
+                });
+            });
+        },
+
+        /** Project cards lean towards the cursor in 3D. */
+        tilt: function () {
+            utils.$$('.project-card').forEach(function (card) {
+                card.style.transformStyle = 'preserve-3d';
+
+                var onMove = utils.rafThrottle(function (clientX, clientY) {
+                    var box = card.getBoundingClientRect();
+                    var px = (clientX - box.left) / box.width - 0.5;
+                    var py = (clientY - box.top) / box.height - 0.5;
+                    card.style.transform =
+                        'perspective(900px) rotateY(' + (px * 7).toFixed(2) + 'deg) rotateX(' +
+                        (-py * 7).toFixed(2) + 'deg) translateY(-6px)';
+                });
+
+                card.addEventListener('mousemove', function (e) { onMove(e.clientX, e.clientY); });
+                card.addEventListener('mouseleave', function () { card.style.transform = ''; });
+            });
+        }
+    };
+
+    /* =============================================================
+     * Parallax - desktop only; on a phone the hero image is the first
+     * thing on screen and shifting it just fights the scroll.
+     * ============================================================= */
+    var parallax = {
+        bind: function () {
+            if (still || utils.isMobile()) return;
+
+            var image = document.getElementById('profileImage');
+            var grid = utils.$('.code-grid-bg');
+            if (!image && !grid) return;
+
+            var onScroll = utils.rafThrottle(function () {
+                var y = window.pageYOffset || 0;
+                if (y > window.innerHeight * 1.2) return; // hero is off screen
+                if (image) image.style.transform = 'translateY(' + Math.min(y * 0.25, 90) + 'px)';
+                if (grid) grid.style.transform = 'translateY(' + (y * 0.15) + 'px)';
+            });
+
+            window.addEventListener('scroll', onScroll, { passive: true });
+        }
+    };
+
+    /* =============================================================
+     * Boot
+     * ============================================================= */
+    function boot() {
+        loader.start();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+
+    // Re-type the hero name when the visitor flips EN/VI.
+    document.addEventListener('portfolio:languagechange', function () {
+        if (!still && loader.finished) hero.typewriter();
     });
-}
 
-function initSmoothScroll() {
-    const sections = document.querySelectorAll('section[id]');
-    const navLinks = document.querySelectorAll('.nav-link[href^="#"]');
-
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const targetId = link.getAttribute('href');
-            const targetSection = document.querySelector(targetId);
-
-            if (targetSection) {
-                const headerHeight = document.querySelector('.main-header').offsetHeight;
-                const targetPosition = targetSection.offsetTop - headerHeight;
-
-                if (typeof anime !== 'undefined') {
-                    anime({
-                        targets: window,
-                        scrollTop: targetPosition,
-                        duration: 800,
-                        easing: 'easeInOutQuad'
-                    });
-                } else {
-                    window.scrollTo({
-                        top: targetPosition,
-                        behavior: 'smooth'
-                    });
-                }
-            }
-        });
-    });
-
-    let currentSection = '';
-    window.addEventListener('scroll', () => {
-        const scrollPos = window.scrollY + 150;
-
-        sections.forEach(section => {
-            const sectionTop = section.offsetTop;
-            const sectionHeight = section.offsetHeight;
-            const sectionId = section.getAttribute('id');
-
-            if (scrollPos >= sectionTop && scrollPos < sectionTop + sectionHeight) {
-                if (currentSection !== sectionId) {
-                    currentSection = sectionId;
-                    navLinks.forEach(link => {
-                        link.classList.remove('active');
-                        if (link.getAttribute('href') === `#${sectionId}`) {
-                            link.classList.add('active');
-                        }
-                    });
-                }
-            }
-        });
-    });
-}
-
-window.Animations = {
-    initParallax,
-    initSmoothScroll
-};
+    window.Portfolio = window.Portfolio || {};
+    window.Portfolio.animations = {
+        loader: loader,
+        reveal: reveal,
+        hero: hero,
+        counters: counters,
+        skills: skills,
+        pointerFx: pointerFx,
+        parallax: parallax
+    };
+})(window, document);
