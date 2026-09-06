@@ -883,13 +883,12 @@
 
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-    <!-- Motion One loaded dynamically -->
-    <script src="js/animations.js"></script>
+    <!-- main.js runs first: it defines window.Portfolio, which animations.js
+         reads on start-up and then extends with Portfolio.animations. -->
     <script src="js/main.js"></script>
-</body>
+    <script src="js/animations.js"></script>
+    <script src="js/debug-overflow.js"></script>
+  </body>
+
 </html>
     <!-- <script  src="./script.js"></script> -->
-
-  </body>
-  
-</html>
